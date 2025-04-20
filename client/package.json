@@ -1,0 +1,53 @@
+{
+    "name": "tradezella-clone-client",
+    "version": "0.1.0",
+    "private": true,
+    "dependencies": {
+        "@heroicons/react": "^2.1.1",
+        "@reduxjs/toolkit": "^2.0.1",
+        "axios": "^1.6.5",
+        "chart.js": "^4.4.1",
+        "date-fns": "^3.1.0",
+        "react": "^18.2.0",
+        "react-chartjs-2": "^5.2.0",
+        "react-datepicker": "^4.25.0",
+        "react-dom": "^18.2.0",
+        "react-redux": "^9.0.4",
+        "react-router-dom": "^6.21.1",
+        "react-scripts": "5.0.1",
+        "react-table": "^7.8.0",
+        "redux": "^5.0.1",
+        "redux-thunk": "^3.1.0",
+        "tradezella-clone": "file:.."
+    },
+    "scripts": {
+        "start": "react-scripts start",
+        "build": "react-scripts build",
+        "test": "react-scripts test",
+        "eject": "react-scripts eject"
+    },
+    "eslintConfig": {
+        "extends": [
+            "react-app",
+            "react-app/jest"
+        ]
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    },
+    "devDependencies": {
+        "autoprefixer": "^10.4.16",
+        "postcss": "^8.4.32",
+        "tailwindcss": "^3.4.0"
+    },
+    "proxy": "http://localhost:5000"
+}

@@ -1,0 +1,4 @@
+{
+    "jwtSecret": "placeholder_jwt_secret_replace_in_production",
+    "jwtExpiration": "24h"
+  }
