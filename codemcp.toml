@@ -1,0 +1,11 @@
+# Optional: Add a project-specific prompt
+project_prompt = """
+This is a [describe your project] codebase. Follow these guidelines when modifying code:
+- [Add your coding standards/preferences]
+- Always write tests for new functionality
+"""
+
+# Optional: Configure commands
+[commands]
+test = ["./run_tests.sh"]
+format = ["./format_code.sh"]
