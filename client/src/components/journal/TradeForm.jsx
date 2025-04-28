@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+// client/src/components/journal/TradeForm.jsx (updated)
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { createTrade } from '../../store/actions/tradeActions';
+import { getInstrumentSuggestions } from '../../utils/instrumentUtils';
 
 const TradeForm = ({ onSuccess }) => {
   const dispatch = useDispatch();
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [useManualPL, setUseManualPL] = useState(false);
+  const suggestionRef = useRef(null);
   
   const [formData, setFormData] = useState({
     symbol: '',
@@ -21,15 +27,93 @@ const TradeForm = ({ onSuccess }) => {
     setupType: '',
     timeframe: '',
     notes: '',
-    emotions: ''
+    emotions: '',
+    pointValue: '',
+    manualProfitLoss: '',
+    instrumentType: 'OTHER'
   });
+  
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    if (name === 'symbol') {
+      const suggestions = getInstrumentSuggestions(value);
+      setSuggestions(suggestions);
+      setShowSuggestions(suggestions.length > 0);
+      
+      // Clear pointValue when symbol changes
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        pointValue: '',
+        instrumentType: 'OTHER'
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+  
+  const selectInstrument = (instrument) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      symbol: instrument.symbol,
+      pointValue: instrument.pointValue,
+      instrumentType: 'FUTURES'
     }));
+    setShowSuggestions(false);
+  };
+  
+  const toggleManualPL = () => {
+    setUseManualPL(!useManualPL);
+    if (useManualPL) {
+      // Clear manual P/L when disabling
+      setFormData(prev => ({
+        ...prev,
+        manualProfitLoss: ''
+      }));
+    }
+  };
+  
+  const calculateEstimatedPL = () => {
+    if (formData.status !== 'CLOSED' || !formData.entryPrice || !formData.exitPrice || !formData.quantity) {
+      return 'N/A';
+    }
+    
+    let priceDiff;
+    if (formData.direction === 'LONG') {
+      priceDiff = formData.exitPrice - formData.entryPrice;
+    } else {
+      priceDiff = formData.entryPrice - formData.exitPrice;
+    }
+    
+    let pl;
+    if (formData.pointValue) {
+      pl = priceDiff * parseFloat(formData.pointValue) * formData.quantity;
+    } else {
+      pl = priceDiff * formData.quantity;
+    }
+    
+    // Subtract fees
+    pl -= parseFloat(formData.fees || 0);
+    
+    return `$${pl.toFixed(2)}`;
   };
   
   const handleSubmit = async (e) => {
@@ -43,7 +127,9 @@ const TradeForm = ({ onSuccess }) => {
       quantity: parseFloat(formData.quantity),
       stopLoss: formData.stopLoss ? parseFloat(formData.stopLoss) : undefined,
       takeProfit: formData.takeProfit ? parseFloat(formData.takeProfit) : undefined,
-      fees: formData.fees ? parseFloat(formData.fees) : 0
+      fees: formData.fees ? parseFloat(formData.fees) : 0,
+      pointValue: formData.pointValue ? parseFloat(formData.pointValue) : undefined,
+      manualProfitLoss: useManualPL && formData.manualProfitLoss ? parseFloat(formData.manualProfitLoss) : undefined
     };
     
     // Remove undefined values
@@ -64,18 +150,40 @@ const TradeForm = ({ onSuccess }) => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="form-group">
+        <div className="form-group relative">
           <label htmlFor="symbol" className="form-label">Symbol</label>
           <input
             type="text"
             id="symbol"
             name="symbol"
             className="form-input"
-            placeholder="e.g. AAPL, BTC/USD"
+            placeholder="e.g. AAPL, NQ, BTC/USD"
             value={formData.symbol}
             onChange={handleChange}
             required
           />
+          {showSuggestions && (
+            <div 
+              ref={suggestionRef}
+              className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-secondary-200 max-h-60 overflow-auto"
+            >
+              {suggestions.map((instrument, index) => (
+                <div
+                  key={index}
+                  className="px-4 py-2 hover:bg-secondary-100 cursor-pointer"
+                  onClick={() => selectInstrument(instrument)}
+                >
+                  <div className="font-medium">{instrument.symbol}</div>
+                  <div className="text-xs text-secondary-600">{instrument.name} (Point Value: ${instrument.pointValue})</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {formData.pointValue && (
+            <div className="mt-1 text-xs text-success-600">
+              Using point value: ${formData.pointValue}
+            </div>
+          )}
         </div>
         
         <div className="form-group">
@@ -164,7 +272,7 @@ const TradeForm = ({ onSuccess }) => {
                 min="0"
                 value={formData.exitPrice}
                 onChange={handleChange}
-                required={formData.status === 'CLOSED'}
+                required={formData.status === 'CLOSED' && !useManualPL}
               />
             </div>
             
@@ -179,6 +287,45 @@ const TradeForm = ({ onSuccess }) => {
                 onChange={handleChange}
                 required={formData.status === 'CLOSED'}
               />
+            </div>
+            
+            <div className="form-group md:col-span-2">
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  id="useManualPL"
+                  checked={useManualPL}
+                  onChange={toggleManualPL}
+                  className="h-4 w-4 text-primary-600 border-secondary-300 rounded"
+                />
+                <label htmlFor="useManualPL" className="ml-2 block text-sm text-secondary-900">
+                  Manually enter P/L instead of calculating from prices
+                </label>
+              </div>
+              
+              {useManualPL ? (
+                <div className="form-group">
+                  <label htmlFor="manualProfitLoss" className="form-label">Profit/Loss ($)</label>
+                  <input
+                    type="number"
+                    id="manualProfitLoss"
+                    name="manualProfitLoss"
+                    className="form-input"
+                    step="any"
+                    value={formData.manualProfitLoss}
+                    onChange={handleChange}
+                    required={useManualPL}
+                    placeholder="Enter your exact P/L in dollars"
+                  />
+                </div>
+              ) : (
+                <div className="mt-1 text-sm">
+                  <span className="font-medium">Estimated P/L: </span>
+                  <span className={calculateEstimatedPL() !== 'N/A' && parseFloat(calculateEstimatedPL().replace('$', '')) > 0 ? 'text-success-600' : calculateEstimatedPL() !== 'N/A' && parseFloat(calculateEstimatedPL().replace('$', '')) < 0 ? 'text-danger-600' : ''}>
+                    {calculateEstimatedPL()}
+                  </span>
+                </div>
+              )}
             </div>
           </>
         )}

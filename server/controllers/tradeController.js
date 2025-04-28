@@ -1,5 +1,7 @@
+// server/controllers/tradeController.js
 const Trade = require('../models/Trade');
 const { validationResult } = require('express-validator');
+const csvParser = require('../services/csvParser');
 
 // @route   GET api/trades
 // @desc    Get all trades for a user
@@ -44,6 +46,9 @@ exports.getTradeById = async (req, res) => {
 // @route   POST api/trades
 // @desc    Create a trade
 // @access  Private
+// server/controllers/tradeController.js (partial update)
+
+// Update the createTrade function to handle point values
 exports.createTrade = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -51,15 +56,18 @@ exports.createTrade = async (req, res) => {
   }
 
   try {
-    const newTrade = new Trade({
-      user: req.user.id,
-      ...req.body
-    });
+    // Get the trade data from the request body
+    const tradeData = { ...req.body, user: req.user.id };
+    
+    // Create the new trade
+    const newTrade = new Trade(tradeData);
 
+    // Calculate profit/loss if the trade is closed
     if (newTrade.status === 'CLOSED') {
       newTrade.calculateProfitLoss();
     }
 
+    // Save the trade
     const trade = await newTrade.save();
     res.json(trade);
   } catch (err) {
@@ -68,9 +76,7 @@ exports.createTrade = async (req, res) => {
   }
 };
 
-// @route   PUT api/trades/:id
-// @desc    Update a trade
-// @access  Private
+// Update the updateTrade function to properly handle point values and manual P/L
 exports.updateTrade = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -90,13 +96,23 @@ exports.updateTrade = async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized' });
     }
 
-    // Update trade
+    // Update trade with new values
+    const updatedFields = { ...req.body };
+    
+    // Handle manual profit/loss field specifically
+    if (updatedFields.manualProfitLoss === undefined && trade.manualProfitLoss !== undefined) {
+      // If the request doesn't have manualProfitLoss but the trade does, we need to explicitly remove it
+      updatedFields.manualProfitLoss = null;
+    }
+    
+    // Update the trade
     trade = await Trade.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updatedFields },
       { new: true }
     );
 
+    // Recalculate profit/loss if the trade is closed
     if (trade.status === 'CLOSED') {
       trade.calculateProfitLoss();
       await trade.save();
@@ -140,7 +156,7 @@ exports.deleteTrade = async (req, res) => {
   }
 };
 
-// @route   GET api/trades/stats
+// @route   GET api/trades/stats/summary
 // @desc    Get trade statistics
 // @access  Private
 exports.getTradeStats = async (req, res) => {
@@ -170,5 +186,41 @@ exports.getTradeStats = async (req, res) => {
   } catch (err) {
     console.error('Get trade stats error:', err.message);
     res.status(500).send('Server error');
+  }
+};
+
+// @route   POST api/trades/import
+// @desc    Import trades from CSV
+// @access  Private
+exports.importTrades = async (req, res) => {
+  try {
+    const broker = req.body.broker || 'generic';
+    
+    // Parse CSV file
+    const trades = await csvParser.parseCSV(req, broker);
+    
+    if (!trades || trades.length === 0) {
+      return res.status(400).json({ msg: 'No valid trades found in the CSV file' });
+    }
+    
+    // Insert trades into database
+    const insertedTrades = await Trade.insertMany(trades);
+    
+    // Calculate profit/loss for closed trades
+    for (const trade of insertedTrades) {
+      if (trade.status === 'CLOSED') {
+        trade.calculateProfitLoss();
+        await trade.save();
+      }
+    }
+    
+    res.json({
+      success: true,
+      count: insertedTrades.length,
+      trades: insertedTrades
+    });
+  } catch (err) {
+    console.error('Import trades error:', err.message);
+    res.status(500).json({ msg: 'Server error', error: err.message });
   }
 };

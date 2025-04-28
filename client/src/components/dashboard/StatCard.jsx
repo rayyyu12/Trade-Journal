@@ -1,16 +1,21 @@
+// client/src/components/dashboard/StatCard.jsx
 import React from 'react';
 
-const StatCard = ({ title, value, icon, color }) => {
+const StatCard = ({ title, value, icon, color, percentChange, direction }) => {
   const getColorClass = () => {
     switch (color) {
       case 'primary':
-        return 'text-primary-600';
+        return 'text-primary-600 bg-primary-100';
       case 'success':
-        return 'text-success-500';
+        return 'text-success-500 bg-green-100';
       case 'danger':
-        return 'text-danger-500';
+        return 'text-danger-500 bg-red-100';
+      case 'warning':
+        return 'text-warning-500 bg-yellow-100';
+      case 'info':
+        return 'text-info-500 bg-blue-100';
       default:
-        return 'text-secondary-600';
+        return 'text-secondary-600 bg-secondary-100';
     }
   };
   
@@ -51,18 +56,35 @@ const StatCard = ({ title, value, icon, color }) => {
   };
   
   return (
-    <div className="card">
+    <div className="card overflow-hidden">
       <div className="flex items-center">
-        <div className={`mr-4 ${getColorClass()}`}>
+        <div className={`p-3 rounded-lg mr-4 ${getColorClass()}`}>
           {renderIcon()}
         </div>
         <div>
           <h3 className="text-sm font-medium text-secondary-500">
             {title}
           </h3>
-          <p className={`text-2xl font-semibold ${getColorClass()}`}>
+          <p className={`text-2xl font-semibold ${getColorClass().split(' ')[0]}`}>
             {value}
           </p>
+          
+          {percentChange && (
+            <div className="mt-1 flex items-center">
+              {direction === 'up' ? (
+                <svg className="w-4 h-4 text-success-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-danger-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              )}
+              <span className={`text-xs font-medium ${direction === 'up' ? 'text-success-500' : 'text-danger-500'}`}>
+                {percentChange}% from last period
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

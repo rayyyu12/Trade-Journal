@@ -1,31 +1,46 @@
-// client/src/pages/JournalPage.jsx
+// client/src/pages/JournalPage.jsx (Updated)
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getTrades } from '../store/actions/tradeActions';
 import TradeForm from '../components/journal/TradeForm';
 import TradeList from '../components/journal/TradeList';
 import TradeFilters from '../components/journal/TradeFilters';
+import ImportTrades from '../components/journal/ImportTrades';
 import Modal from '../components/common/Modal';
+import Button from '../components/common/Button';
+import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
 
 const JournalPage = () => {
   const dispatch = useDispatch();
   const { trades, loading } = useSelector(state => state.trades);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [filteredTrades, setFilteredTrades] = useState([]);
   const [filters, setFilters] = useState({
     symbol: '',
     direction: '',
     status: '',
     startDate: null,
-    endDate: null
+    endDate: null,
+    strategy: '',
+    setupType: '',
+    timeframe: '',
+    emotions: ''
   });
   
   useEffect(() => {
     dispatch(getTrades());
   }, [dispatch]);
   
-  // Define applyFilters outside of useEffect to avoid the dependency warning
+  useEffect(() => {
+    if (trades.length > 0) {
+      applyFilters();
+    } else {
+      setFilteredTrades([]);
+    }
+  }, [trades, filters]);
+  
   const applyFilters = () => {
     let result = [...trades];
     
@@ -55,16 +70,28 @@ const JournalPage = () => {
       );
     }
     
+    if (filters.strategy) {
+      result = result.filter(trade => 
+        trade.strategy?.toLowerCase().includes(filters.strategy.toLowerCase())
+      );
+    }
+    
+    if (filters.setupType) {
+      result = result.filter(trade => 
+        trade.setupType?.toLowerCase().includes(filters.setupType.toLowerCase())
+      );
+    }
+    
+    if (filters.timeframe) {
+      result = result.filter(trade => trade.timeframe === filters.timeframe);
+    }
+    
+    if (filters.emotions) {
+      result = result.filter(trade => trade.emotions === filters.emotions);
+    }
+    
     setFilteredTrades(result);
   };
-  
-  useEffect(() => {
-    if (trades.length > 0) {
-      applyFilters();
-    } else {
-      setFilteredTrades([]);
-    }
-  }, [trades, filters, applyFilters]); // Added applyFilters to dependency array
   
   const onFilterChange = newFilters => {
     setFilters(newFilters);
@@ -78,6 +105,14 @@ const JournalPage = () => {
     setIsAddModalOpen(false);
   };
   
+  const openImportModal = () => {
+    setIsImportModalOpen(true);
+  };
+  
+  const closeImportModal = () => {
+    setIsImportModalOpen(false);
+  };
+  
   if (loading && trades.length === 0) {
     return <Loading />;
   }
@@ -88,12 +123,20 @@ const JournalPage = () => {
         <h1 className="text-2xl font-bold text-secondary-900">
           Trade Journal
         </h1>
-        <button
-          onClick={openAddModal}
-          className="btn btn-primary"
-        >
-          Add New Trade
-        </button>
+        <div className="space-x-2">
+          <Button 
+            onClick={openImportModal}
+            variant="secondary"
+          >
+            Import Trades
+          </Button>
+          <Button
+            onClick={openAddModal}
+            variant="primary"
+          >
+            Add New Trade
+          </Button>
+        </div>
       </div>
       
       <TradeFilters 
@@ -114,6 +157,15 @@ const JournalPage = () => {
         title="Add New Trade"
       >
         <TradeForm onSuccess={closeAddModal} />
+      </Modal>
+
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={closeImportModal}
+        title="Import Trades"
+        size="large"
+      >
+        <ImportTrades onClose={closeImportModal} />
       </Modal>
     </div>
   );
